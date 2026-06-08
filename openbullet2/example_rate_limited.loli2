@@ -1,0 +1,123 @@
+// ==========================================
+// DATADOME SOLVER - RATE LIMITING
+// ==========================================
+// Demonstriert Best Practices für
+// Rate Limiting und Stealth
+// ==========================================
+
+BLOCK Datadome Rate Limited
+  // ========== KONFIGURATION ==========
+  SET @base_delay = 5000          // 5 Sekunden Standard
+  SET @random_delay_min = 2000    // 2-8 Sekunden zufällig
+  SET @random_delay_max = 8000
+  SET @retry_count = 3            // Max 3 Versuche
+  SET @timeout = 60               // 60 Sekunden Timeout
+  
+  // ========== USER AGENTS (Rotation) ==========
+  SET @user_agents = "
+    Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/148.0.0.0 Safari/537.36
+    Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/147.0.0.0 Safari/537.36
+    Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/148.0.0.0 Safari/537.36
+  "
+  
+  SET @ua_list = @user_agents.Split("\n")
+  SET @ua_index = RANDOM(0, @ua_list.Length)
+  SET @user_agent = @ua_list[@ua_index]
+  
+  LOG "[*] Using User-Agent: " @user_agent.Substring(0, 50) "..."
+  
+  // ========== ATTEMPT LOOP ==========
+  SET @attempt = 0
+  SET @success = false
+  
+  WHILE @attempt < @retry_count && @success == false
+    SET @attempt = @attempt + 1
+    LOG "\n[*] Attempt " @attempt " of " @retry_count
+    
+    // ========== Zufällige Verzögerung ==========
+    SET @random_delay = RANDOM(@random_delay_min, @random_delay_max)
+    LOG "[*] Delay: " @random_delay "ms"
+    DELAY @random_delay
+    
+    // ========== Homepage laden mit Verzögerung ==========
+    REQUEST
+      Url = "https://www.etsy.com/"
+      Method = GET
+      FollowLocation = true
+      Timeout = @timeout
+      
+      Headers
+        User-Agent = @user_agent
+        Accept = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+        Accept-Language = "de-DE,de;q=0.9,en-US;q=0.8"
+        Accept-Encoding = "gzip, deflate, br"
+        Connection = "keep-alive"
+        Upgrade-Insecure-Requests = "1"
+        Sec-Fetch-Dest = "document"
+        Sec-Fetch-Mode = "navigate"
+        Sec-Fetch-Site = "none"
+        Cache-Control = "max-age=0"
+    
+    SET @load_status = <STATUS_CODE>
+    LOG "[+] Homepage status: " @load_status
+    
+    // ========== Vor Challenge: Kleine Verzögerung ==========
+    DELAY 1000
+    
+    // ========== DATADOME SOLVER ==========
+    TRY
+      DATADOME SOLVER
+        TargetUrl = "https://www.etsy.com/"
+        DdJsKey = "D013AA612AB2224D03B2318D0F5B19"
+        Cid = ""
+        Profile = "chrome_win10"
+        TimeoutSeconds = @timeout
+      
+      SET @datadome_cookie = <DatadomeCookie>
+      
+      IF @datadome_cookie != ""
+        SET @success = true
+        LOG "[+] ✓ Challenge SOLVED on attempt " @attempt
+        LOG "[+] Cookie: " @datadome_cookie.Substring(0, 40) "..."
+      ELSE
+        LOG "[!] ✗ Empty cookie response"
+      ENDIF
+    CATCH
+      LOG "[!] ✗ Challenge failed: " <ERROR>
+      
+      IF @attempt < @retry_count
+        LOG "[*] Retrying..."
+      ENDIF
+    ENDTRY
+  END
+  
+  // ========== ERGEBNIS ==========
+  IF @success == true
+    LOG "\n[+] =========== SUCCESS ==========="
+    LOG "[+] Total attempts: " @attempt
+    LOG "[+] Cookie obtained: " @datadome_cookie
+    
+    // ========== Verifikation mit Cookie ==========
+    DELAY 3000
+    
+    REQUEST
+      Url = "https://www.etsy.com/api/v1/users"
+      Method = GET
+      
+      Cookies
+        x = @datadome_cookie
+      
+      Headers
+        User-Agent = @user_agent
+        Accept = "application/json"
+    
+    SET @verify_status = <STATUS_CODE>
+    LOG "[+] Verification status: " @verify_status
+  ELSE
+    LOG "\n[!] =========== FAILED ==========="
+    LOG "[!] Could not solve challenge after " @retry_count " attempts"
+  ENDIF
+  
+  OUTPUT
+    @datadome_cookie
+END

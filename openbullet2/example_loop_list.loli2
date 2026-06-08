@@ -1,0 +1,100 @@
+// ==========================================
+// DATADOME SOLVER - LISTE MIT LOOP
+// ==========================================
+// Liest Websites aus Liste und löst
+// Datadome Challenge für jede Seite
+// Mit Fehlerbehandlung und Logging
+// ==========================================
+
+BLOCK Datadome List Loop
+  // ========== INPUT LISTE ==========
+  // Format: Jede Zeile eine Website
+  INPUT LINES
+    https://www.etsy.com/
+    https://www.amazon.com/
+    https://booking.com/
+  
+  SET @success_count = 0
+  SET @fail_count = 0
+  SET @total_count = 0
+  SET @results = ""
+  
+  // ========== LOOP über Input ==========
+  FOREACH @website IN @INPUT
+    SET @total_count = @total_count + 1
+    LOG "\n" 
+    LOG "===== Website #" @total_count " ====="
+    LOG "URL: " @website
+    
+    // ========== Website laden ==========
+    TRY
+      REQUEST
+        Url = @website
+        Method = GET
+        FollowLocation = true
+        Timeout = 30
+      
+      SET @response_status = <STATUS_CODE>
+      LOG "[+] Status: " @response_status
+    CATCH
+      LOG "[!] Request fehlgeschlagen"
+      SET @fail_count = @fail_count + 1
+      CONTINUE
+    ENDTRY
+    
+    // ========== DdJsKey bestimmen ==========
+    // Für dieses Beispiel verwenden wir einen Standard-Key
+    // In der Praxis würde man den Key extrahieren
+    SET @ddjskey = "D013AA612AB2224D03B2318D0F5B19"
+    
+    // ========== Datadome Solver ==========
+    TRY
+      DATADOME SOLVER
+        TargetUrl = @website
+        DdJsKey = @ddjskey
+        Cid = ""
+        Profile = "chrome_win10"
+        TimeoutSeconds = 45
+      
+      SET @cookie = <DatadomeCookie>
+      SET @success_count = @success_count + 1
+      
+      LOG "[+] ✓ Challenge SUCCESS"
+      LOG "[+] Cookie: " @cookie.Substring(0, 50) "..."
+      LOG "[+] Status: SOLVED"
+      
+      SET @result_status = "SOLVED"
+    CATCH
+      SET @fail_count = @fail_count + 1
+      SET @cookie = "N/A"
+      
+      LOG "[!] ✗ Challenge FAILED"
+      LOG "[!] Error: " <ERROR>
+      LOG "[!] Status: FAILED"
+      
+      SET @result_status = "FAILED"
+    ENDTRY
+    
+    // ========== Ergebnis speichern ==========
+    SET @result_line = @website + " | " + @result_status + " | " + @cookie
+    SET @results = @results + @result_line + "\n"
+    
+    // ========== Verzögerung zwischen Requests ==========
+    LOG "[*] Waiting 5 seconds before next website..."
+    DELAY 5000
+  END
+  
+  // ========== ZUSAMMENFASSUNG ==========
+  LOG "\n"
+  LOG "============= SUMMARY ============="
+  LOG "Total:      " @total_count
+  LOG "Successful: " @success_count
+  LOG "Failed:     " @fail_count
+  LOG "Success Rate: " (@success_count * 100 / @total_count) "%"
+  LOG "\n"
+  LOG "===== DETAILS ====="
+  LOG @results
+  
+  OUTPUT
+    @results
+END

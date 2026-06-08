@@ -1,0 +1,63 @@
+// ==========================================
+// DATADOME SOLVER - CUSTOM PROFILE
+// ==========================================
+// Beispiel mit deutschem Profil und
+// lokalisiertem User-Agent
+// ==========================================
+
+BLOCK Datadome Custom Profile
+  LOG "[*] Starting Datadome Solver with German Profile"
+  
+  // ========== Deutsche Headers ==========
+  REQUEST
+    Url = "https://www.etsy.com/"
+    Method = GET
+    FollowLocation = true
+    
+    Headers
+      User-Agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36"
+      Accept = "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8"
+      Accept-Language = "de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7"
+      Accept-Encoding = "gzip, deflate, br"
+      Connection = "keep-alive"
+      Upgrade-Insecure-Requests = "1"
+  
+  LOG "[+] Homepage loaded with German locale"
+  
+  // ========== Deutsches Profil verwenden ==========
+  DATADOME SOLVER
+    TargetUrl = "https://www.etsy.com/"
+    DdJsKey = "D013AA612AB2224D03B2318D0F5B19"
+    Cid = ""
+    Profile = "chrome_win10_de"  // Deutsches Profil!
+    TimeoutSeconds = 45
+  
+  SET @cookie = <DatadomeCookie>
+  
+  IF @cookie != ""
+    LOG "[+] ✓ Challenge mit deutschem Profil gelöst"
+    LOG "[+] Cookie: " @cookie
+    
+    // ========== Mit Cookie und deutschen Headers ==========
+    DELAY 2000
+    
+    REQUEST
+      Url = "https://www.etsy.com/"
+      Method = GET
+      
+      Cookies
+        x = @cookie
+      
+      Headers
+        User-Agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36"
+        Accept-Language = "de-DE,de;q=0.9"
+    
+    SET @final_response = <BODY>
+    LOG "[+] Authentifizierter Request erfolgreich"
+  ELSE
+    LOG "[!] Challenge fehlgeschlagen"
+  ENDIF
+  
+  OUTPUT
+    @cookie
+END

@@ -1,0 +1,83 @@
+// ==========================================
+// DATADOME SOLVER - MIT PROXY ROTATION
+// ==========================================
+// Verwendet Proxy-Rotation für bessere
+// Anonymität und höhere Erfolgsquote
+// ==========================================
+
+BLOCK Datadome With Proxy
+  // ========== Proxy Liste ==========
+  SET @proxies = "
+    http://proxy1.com:8080
+    http://proxy2.com:8080
+    http://proxy3.com:8080
+    http://proxy4.com:8080
+    http://proxy5.com:8080
+  "
+  
+  SET @proxy_index = 0
+  SET @proxy_list = @proxies.Split("\n")
+  
+  // ========== Zufälligen Proxy wählen ==========
+  SET @proxy_index = RANDOM(0, @proxy_list.Length)
+  SET @current_proxy = @proxy_list[@proxy_index]
+  
+  LOG "[*] Using Proxy: " @current_proxy
+  
+  // ========== SCHRITT 1: Mit Proxy laden ==========
+  REQUEST
+    Url = "https://www.etsy.com/"
+    Method = GET
+    FollowLocation = true
+    Timeout = 45
+    
+    Proxy
+      @current_proxy
+    
+    Headers
+      User-Agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36"
+      Accept-Language = "de-DE,de;q=0.9"
+  
+  LOG "[+] Homepage loaded via proxy"
+  
+  // ========== SCHRITT 2: Datadome lösen ==========
+  DATADOME SOLVER
+    TargetUrl = "https://www.etsy.com/"
+    DdJsKey = "D013AA612AB2224D03B2318D0F5B19"
+    Cid = ""
+    Profile = "chrome_win10"
+    TimeoutSeconds = 60
+  
+  SET @datadome_cookie = <DatadomeCookie>
+  
+  // ========== SCHRITT 3: Verifikation ==========
+  IF @datadome_cookie == ""
+    LOG "[!] ✗ Challenge fehlgeschlagen mit Proxy"
+  ELSE
+    LOG "[+] ✓ Challenge erfolgreich mit Proxy"
+    LOG "[+] Cookie: " @datadome_cookie
+    
+    // ========== Mit Cookie Request senden ==========
+    DELAY 2000
+    
+    REQUEST
+      Url = "https://www.etsy.com/api/v1/users"
+      Method = GET
+      
+      Proxy
+        @current_proxy
+      
+      Cookies
+        x = @datadome_cookie
+      
+      Headers
+        User-Agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36"
+        Accept = "application/json"
+    
+    SET @api_response = <BODY>
+    LOG "[+] API Response: " @api_response.Substring(0, 100)
+  ENDIF
+  
+  OUTPUT
+    @datadome_cookie
+END

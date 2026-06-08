@@ -1,0 +1,83 @@
+// ==========================================
+// DATADOME SOLVER - FORTGESCHRITTENES BEISPIEL
+// ==========================================
+// - Dynamischer DdJsKey Extraction
+// - CID Parsing
+// - Cookie Setting
+// - Fehlerbehandlung
+// ==========================================
+
+BLOCK Datadome Advanced Example
+  // ========== SCHRITT 1: HTML laden ==========
+  REQUEST
+    Url = "https://www.etsy.com/"
+    Method = GET
+    FollowLocation = true
+    Timeout = 30
+    HttpVersion = 1.1
+    
+    Headers
+      User-Agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36"
+      Accept = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+      Accept-Language = "de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7"
+      Accept-Encoding = "gzip, deflate, br"
+      Connection = "keep-alive"
+      Upgrade-Insecure-Requests = "1"
+  
+  SET @response_body = <BODY>
+  LOG "[*] Loaded Etsy homepage"
+  
+  // ========== SCHRITT 2: DdJsKey extrahieren ==========
+  REGEX @ddjskey "DD_JSKEY[\s=]+['\"]([A-F0-9]{32})['\"]" -1
+  
+  IF @ddjskey == ""
+    LOG "[!] Could not extract DdJsKey, using default"
+    SET @ddjskey = "D013AA612AB2224D03B2318D0F5B19"
+  ELSE
+    LOG "[+] Extracted DdJsKey: " @ddjskey
+  ENDIF
+  
+  // ========== SCHRITT 3: CID extrahieren (optional) ==========
+  REGEX @cid "dd-cid['\"]?[:\s=]+['\"]?([a-zA-Z0-9]+)['\"]?" -1
+  
+  IF @cid == ""
+    LOG "[*] No CID found, solving without CID"
+    SET @cid = ""
+  ELSE
+    LOG "[+] Extracted CID: " @cid
+  ENDIF
+  
+  // ========== SCHRITT 4: Datadome lösen ==========
+  DATADOME SOLVER
+    TargetUrl = "https://www.etsy.com/"
+    DdJsKey = @ddjskey
+    Cid = @cid
+    Profile = "chrome_win10"
+    TimeoutSeconds = 45
+  
+  SET @datadome_cookie = <DatadomeCookie>
+  
+  IF @datadome_cookie != ""
+    LOG "[+] ✓ Datadome Challenge gelöst!"
+    LOG "[+] Cookie: " @datadome_cookie
+  ELSE
+    LOG "[!] ✗ Datadome Challenge fehlgeschlagen"
+  ENDIF
+  
+  // ========== SCHRITT 5: Cookie setzen ==========
+  REQUEST
+    Url = "https://www.etsy.com/"
+    Method = GET
+    
+    Cookies
+      x = @datadome_cookie
+    
+    Headers
+      User-Agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36"
+  
+  SET @protected_response = <BODY>
+  LOG "[+] Request mit Datadome Cookie erfolgreich"
+  
+  OUTPUT
+    @datadome_cookie
+END

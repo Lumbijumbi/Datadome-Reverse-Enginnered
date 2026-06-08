@@ -1,0 +1,75 @@
+// ==========================================
+// DATADOME SOLVER - MULTI-SITE BEISPIEL
+// ==========================================
+// Loop über mehrere Websites mit jeweils
+// unterschiedlichen DdJsKeys
+// ==========================================
+
+BLOCK Datadome MultiSite
+  // ========== INPUT: Website Liste ==========
+  SET @sites = "
+    https://www.etsy.com/|D013AA612AB2224D03B2318D0F5B19
+    https://www.amazon.com/|AMAZON_JSKEY_HERE
+    https://booking.com/|BOOKING_JSKEY_HERE
+  "
+  
+  SET @results = ""
+  SET @counter = 0
+  
+  // ========== LOOP über Websites ==========
+  FOREACH @line IN @sites
+    IF @line == ""
+      CONTINUE
+    ENDIF
+    
+    // Parse Zeile: URL|Key
+    REGEX @url "^(.+?)\|" 1
+    REGEX @key "\|(.+?)$" 1
+    
+    SET @counter = @counter + 1
+    LOG "[" @counter "] Processing: " @url
+    
+    // ========== Website laden ==========
+    REQUEST
+      Url = @url
+      Method = GET
+      FollowLocation = true
+      Timeout = 30
+    
+    LOG "  ✓ Homepage loaded"
+    
+    // ========== Datadome Challenge lösen ==========
+    TRY
+      DATADOME SOLVER
+        TargetUrl = @url
+        DdJsKey = @key
+        Cid = ""
+        Profile = "chrome_win10"
+        TimeoutSeconds = 60
+      
+      SET @cookie = <DatadomeCookie>
+      SET @status = "SUCCESS"
+      LOG "  ✓ Challenge solved: " @cookie
+    CATCH
+      SET @cookie = "FAILED"
+      SET @status = "ERROR"
+      LOG "  ✗ Challenge failed: " <ERROR>
+    ENDTRY
+    
+    // ========== Ergebnis speichern ==========
+    SET @result_line = @url + "|" + @status + "|" + @cookie
+    SET @results = @results + @result_line + "\n"
+    
+    // ========== Verzögerung ==========
+    DELAY 3000
+    LOG "  Waiting 3 seconds before next site..."
+  END
+  
+  // ========== Ergebnisse ausgeben ==========
+  LOG "\n" 
+  LOG "========== RESULTS =========="
+  LOG @results
+  
+  OUTPUT
+    @results
+END

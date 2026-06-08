@@ -1,0 +1,26 @@
+// ==========================================
+// DATADOME SOLVER - EINFACHES BEISPIEL
+// ==========================================
+// Dieses Beispiel zeigt die grundlegende
+// Verwendung des Datadome Solver Blocks
+// ==========================================
+
+BLOCK Datadome Simple Example
+  REQUEST
+    Url = "https://www.etsy.com/"
+    Method = GET
+    FollowLocation = true
+  
+  DATADOME SOLVER
+    TargetUrl = "https://www.etsy.com/"
+    DdJsKey = "D013AA612AB2224D03B2318D0F5B19"
+    Cid = ""
+    Profile = "chrome_win10"
+  
+  SET @datadome_cookie = <DatadomeCookie>
+  
+  LOG "[+] Datadome Cookie: " @datadome_cookie
+  
+  OUTPUT
+    @datadome_cookie
+END
